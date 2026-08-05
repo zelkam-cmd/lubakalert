@@ -1,101 +1,87 @@
-# LubakAlert: Crowdsourced Road Hazard Mapping & Government Reporting System
+# LubakAlert: Crowdsourced Road Hazard Mapping & DPWH Government Telematics System
 
-**LubakAlert** is a crowdsourced road hazard mapping system designed for drivers and government engineering offices (e.g., DPWH - Department of Public Works and Highways). It allows drivers to quickly report road hazards on the move, automatically triages reports using a 20-meter proximity clustering algorithm, escalates high-impact hazards to "Critical" status when report counts hit 50, and equips government engineers with an interactive dashboard to dispatch work orders and update repair statuses.
+**LubakAlert** is a crowdsourced road hazard mapping and government escalation system built for drivers and Department of Public Works and Highways (DPWH) engineering offices. It features real-time 400m early hazard proximity warnings, telematics vehicle speed drop detection, 20-meter Haversine report clustering, automatic 50-report critical escalation, and an interactive DPWH work order dispatch console.
 
 ---
 
-## 📁 Project Architecture
+## 📁 Project Structure
 
 ```
 lubakalert/
 ├── backend/
-│   ├── schema.sql              # 3NF Relational Database Schema (Users, Cases, Reports)
-│   ├── config.php              # PDO Database Connection & Haversine Distance Helper
-│   ├── report_api.php          # Requirement 2: Triage & 20m Radius Escalation API
-│   └── admin_api.php           # Requirement 4: DPWH Admin Dashboard API & Status Updater
+│   ├── schema.sql              # 3NF Relational Database Schema & Bulacan Seed Data
+│   ├── config.php              # PDO Database Connection (XAMPP MySQL/MariaDB) & Haversine Distance
+│   ├── report_api.php          # Triage, 20m Radius Clustering & 50-Ping Escalation API
+│   └── admin_api.php           # DPWH Admin Dashboard API & Status Update Handler
 ├── css/
-│   └── styles.css              # Core Cyber-Dark / Glassmorphism Design Tokens & Layouts
+│   └── styles.css              # Cyber-Dark & Glassmorphism UI Styles
 ├── js/
-│   ├── mock_backend.js         # Client-Side Fallback Engine (Dual Mode: Live PHP + Static Demo)
-│   ├── driver.js               # Requirement 3: Mobile Driver Map & Quick Report Controller
-│   └── admin.js                # Requirement 4: DPWH Engineering Dashboard Controller & CSV Export
-├── index.html                  # Single-Page Web Launcher (Driver View + Admin Dashboard)
-└── README.md                   # System Documentation
+│   ├── road_data.js            # 1,112-Node High-Res OpenStreetMap Road Geometry Dataset
+│   ├── mock_backend.js         # Client-Side Fallback Engine (Runs browser preview offline)
+│   ├── driver.js               # Mobile Driver Navigation, 400m Early Warning & Telematics Engine
+│   └── admin.js                # DPWH Admin Dashboard, Work Order Data Table & CSV Exporter
+├── index.html                  # Main Web App Launcher (Driver View + Admin Dashboard)
+└── README.md                   # System Setup Guide & XAMPP Instructions
 ```
 
 ---
 
-## 🗄️ 1. Database Architecture (3NF Relational SQL)
+## 🚀 Deployment Guide using XAMPP (Apache + MariaDB / MySQL + PHP)
+
+Follow these step-by-step instructions to run LubakAlert with XAMPP on Windows:
+
+### Step 1: Start XAMPP Server Modules
+1. Open **XAMPP Control Panel**.
+2. Click **Start** for both **Apache** and **MySQL** modules until both indicators turn green.
+
+### Step 2: Copy Project to XAMPP `htdocs`
+Copy the `lubakalert` project directory into your XAMPP `htdocs` folder:
+`C:\xampp\htdocs\lubakalert\`
+
+### Step 3: Import Database Schema via phpMyAdmin
+1. Open your web browser and navigate to:
+   `http://localhost/phpmyadmin/`
+2. Click **New** in the left sidebar to create a database named:
+   `lubakalert` (Collation: `utf8mb4_unicode_ci`).
+3. Click on the `lubakalert` database, navigate to the **Import** tab at the top.
+4. Choose the `C:\xampp\htdocs\lubakalert\backend\schema.sql` file and click **Import** (or paste the contents into the **SQL** tab).
+
+### Step 4: Open LubakAlert in Browser
+Navigate to:
+`http://localhost/lubakalert/index.html`
+
+The top-right badge will display **`LIVE PHP API CONNECTED`**, indicating full connectivity to `backend/report_api.php` and `backend/admin_api.php`!
+
+---
+
+## 💻 Standalone Browser Preview Mode (No XAMPP Required)
+
+If you just want to preview the interface without XAMPP:
+Simply double-click or open `index.html` directly in any web browser. LubakAlert automatically detects that a live PHP server is not attached and initializes the **integrated client-side engine** (`js/mock_backend.js`), running the 20m Haversine algorithm and 50-report critical escalation in-memory!
+
+---
+
+## 🗄️ Database Architecture (3NF SQL)
 
 Located at `backend/schema.sql`.
 
-### Relational Tables
-1. **`users`**: Stores driver identity and device user-agent metadata.
-   - Columns: `id` (PK), `name`, `device_info`, `created_at`
-2. **`cases`**: Represents a unique physical road hazard centroid cluster.
-   - Columns: `id` (PK), `center_latitude`, `center_longitude`, `total_reports`, `severity_level` (`Low`, `Moderate`, `Critical`), `status` (`Pending`, `In Progress`, `Resolved`), `created_at`, `updated_at`
-3. **`reports`**: Stores individual crowdsourced reports sent by drivers.
-   - Columns: `id` (PK), `case_id` (FK -> `cases.id`), `user_id` (FK -> `users.id`), `latitude`, `longitude`, `timestamp`
-   - **Enforces 1-to-Many Relationship**: One `Case` contains many `Reports`.
+- **`users`**: `id` (PK), `name`, `device_info`, `created_at`
+- **`cases`**: `id` (PK), `center_latitude`, `center_longitude`, `total_reports`, `severity_level` (`Low`, `Moderate`, `Critical`), `detection_type` (`Manual Report`, `Telemetry Speed Drop`, `Hybrid`), `avg_speed_drop_kmh`, `status` (`Pending`, `In Progress`, `Resolved`), `address`
+- **`reports`**: `id` (PK), `case_id` (FK -> `cases.id`), `user_id` (FK -> `users.id`), `latitude`, `longitude`, `report_type` (`Manual_Button`, `Telematics_Slowdown_Ping`), `vehicle_speed_kmh`, `timestamp`
+- **1-to-Many Relationship**: One `Case` contains many `Reports`.
 
 ---
 
-## ⚡ 2. Triage & Escalation Logic (PHP Backend)
+## ⚡ Key Application Features
 
-Located at `backend/report_api.php`.
+1. **400m Early Hazard Warning Alerts**:
+   Audio chimes, text-to-speech voice alerts, and HUD top banners notify drivers 400 meters before entering hazard circles (e.g. single-lane pipe construction in Guiguinto and Malolos).
 
-### How it Works:
-1. Accepts GPS coordinates (`latitude`, `longitude`) via POST request.
-2. Executes a Haversine Great Circle query to calculate distance in meters from active cases:
-   $$\text{Distance} = 6371000 \times 2 \times \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}\right)$$
-3. **If Distance $\le$ 20.0 meters**:
-   - Links the report to the existing case (`case_id`).
-   - Increments `total_reports` count by +1.
-   - **Automatic Escalation**: If `total_reports` $\ge$ 50, updates `severity_level` to **"Critical"**.
-4. **If Distance $>$ 20.0 meters**:
-   - Creates a new record in `cases` (`total_reports = 1`, `severity_level = 'Low'`, `status = 'Pending'`).
-   - Inserts new report linked to the new Case ID.
+2. **Automated Telematics Speed Drop Detection**:
+   When vehicles slow down to <18 km/h over a pothole zone, the system auto-registers a telematics traffic ping (`Telematics_Slowdown_Ping`).
 
----
+3. **Interactive Route Planner & NLEX Toggle**:
+   Choose custom Origin & Destination points in Bulacan, or toggle between **MacArthur Highway** and **NLEX Expressway**.
 
-## 🚘 3. Driver Mobile UI
-
-Located at `index.html` (Driver View) and `js/driver.js`.
-
-- Distraction-free dark mode map view powered by Leaflet.js.
-- **Visual Caution Zones**: Pulsing color-coded geographic circles:
-  - 🔴 **Red**: Critical Cases ($\ge$ 50 reports)
-  - 🟠 **Orange**: Moderate Cases (10–49 reports)
-  - 🟡 **Yellow**: Low / Initial Cases ($<$ 10 reports)
-- **Huge "QUICK REPORT HAZARD" Button**: High-accessibility 84px+ touch target with audible audio tone and visual flash feedback for safe one-tap reporting while driving.
-- Includes built-in driving simulation and rapid 50-report escalation test triggers.
-
----
-
-## 🏛️ 4. DPWH Admin Dashboard
-
-Located at `index.html` (Admin View) and `js/admin.js`.
-
-- High-level metric summary cards (Total Cases, Critical Cases, Pending, In Progress, Resolved).
-- **Critical Cases & Work Queue Data Table**: Displays Case ID, GPS Coordinates, Total Reports, Severity Badge, and Status Modifier dropdown.
-- **Interactive Status Modifier**: Change status between `Pending`, `In Progress`, and `Resolved` with immediate write-back to database and live map update.
-- **Export Work Orders**: One-click export to CSV format (`DPWH_LubakAlert_WorkOrders.csv`).
-
----
-
-## 🚀 How to Run the Prototype
-
-### Option A: Immediate Web Browser Preview (Zero Setup)
-Simply open `index.html` in any web browser. The application automatically detects that live PHP is not attached and initializes the **integrated JS Mock Engine** (`js/mock_backend.js`) which runs the exact 20m Haversine algorithm and 50-report critical escalation in-memory.
-
-### Option B: Running with PHP & MySQL Server
-1. Start your local MySQL / MariaDB server (e.g., XAMPP, WAMP, or standalone MySQL).
-2. Import `backend/schema.sql` into MySQL:
-   ```bash
-   mysql -u root -p < backend/schema.sql
-   ```
-3. Start local PHP development server in the project directory:
-   ```bash
-   php -S 127.0.0.1:8000
-   ```
-4. Open `http://127.0.0.1:8000/index.html`. The app will automatically connect to `backend/report_api.php` and `backend/admin_api.php`!
+4. **DPWH Admin Dashboard & CSV Work Order Exporter**:
+   Filter critical cases, modify repair statuses (`Pending`, `In Progress`, `Resolved`), and export official work order CSV files (`DPWH_Bulacan_WorkOrders.csv`).
