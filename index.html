@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LubakAlert - Crowdsourced Road Hazard Mapping & Telematics System</title>
+    
+    <!-- Leaflet.js CSS for Interactive Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <!-- Custom LubakAlert Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- App Header & Main Navigation Bar -->
+    <header class="navbar">
+        <div class="brand-title">
+            <i class="fa-solid fa-triangle-exclamation brand-icon"></i>
+            <span>LubakAlert</span>
+        </div>
+
+        <div class="view-switcher">
+            <button id="navDriverBtn" class="nav-btn active" onclick="switchView('driver')">
+                <i class="fa-solid fa-car"></i> Driver Mobile UI
+            </button>
+            <button id="navAdminBtn" class="nav-btn" onclick="switchView('admin')">
+                <i class="fa-solid fa-building-columns"></i> DPWH Admin Dashboard
+            </button>
+        </div>
+
+        <div id="backendModeBadge" class="mode-badge" title="Click to toggle API backend mode">
+            <span class="dot"></span>
+            <span id="backendModeText">Engine Active</span>
+        </div>
+    </header>
+
+    <!-- =========================================================================
+         VIEW 1: DRIVER MOBILE UI (Distraction-Free Mobile Map View & Route Planner)
+         ========================================================================= -->
+    <main id="driverView" class="view-container active">
+        <!-- Floating Driver Overlay Stack -->
+        <div class="driver-overlay">
+            <!-- Toast Bar -->
+            <div class="status-toast-bar">
+                <div class="gps-indicator">
+                    <span class="pulse-icon"></span>
+                    <span id="gpsStatusText">Route: BulSU Gate 1 ➔ Meycauayan</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <span id="routeTypeBadge" class="route-type-badge mcarthur">🛣️ MacArthur Highway</span>
+                    <div style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 0.2rem 0.6rem; border-radius: var(--radius-full); font-weight: 800; font-size: 0.78rem;">
+                        <i class="fa-solid fa-gauge-high"></i> <span id="speedometerText">58 km/h</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Input & NLEX Option Planner -->
+            <div class="route-planner-card">
+                <div class="route-planner-row">
+                    <div class="route-select-group">
+                        <label><i class="fa-solid fa-location-dot" style="color: #10b981;"></i> Where you are (Origin)</label>
+                        <select id="selectOrigin" class="route-select">
+                            <option value="bulsu" selected> BulSU Gate 1, Malolos</option>
+                            <option value="malolos_capitol"> Malolos Provincial Capitol</option>
+                            <option value="guiguinto_tabang"> Tabang Junction, Guiguinto</option>
+                            <option value="balagtas"> Balagtas Town Center</option>
+                            <option value="bocaue_bridge"> Bocaue River Bridge</option>
+                            <option value="marilao"> SM City Marilao</option>
+                        </select>
+                    </div>
+
+                    <div class="route-select-group">
+                        <label><i class="fa-solid fa-flag-checkered" style="color: #ef4444;"></i> Where you're going (Destination)</label>
+                        <select id="selectDestination" class="route-select">
+                            <option value="meycauayan" selected> Meycauayan City Center</option>
+                            <option value="marilao"> SM City Marilao</option>
+                            <option value="bocaue_bridge"> Bocaue River Bridge</option>
+                            <option value="guiguinto_tabang"> Tabang, Guiguinto</option>
+                            <option value="malolos_capitol"> Malolos Capitol</option>
+                        </select>
+                    </div>
+
+                    <!-- NLEX Expressway Toggle Option -->
+                    <div class="route-select-group" style="max-width: 170px;">
+                        <label><i class="fa-solid fa-road"></i> Route via NLEX?</label>
+                        <label class="nlex-toggle-container">
+                            <input type="checkbox" id="toggleNlex" class="nlex-toggle-checkbox">
+                            <span class="nlex-label">Use NLEX</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic HUD Early Warning Alert Banner (Cleanly Flowing Below Route Planner Card) -->
+            <div id="hudWarningBanner" class="hud-warning-banner"></div>
+        </div>
+
+        <!-- Interactive Leaflet Map -->
+        <div id="driverMap"></div>
+
+        <!-- Floating Bottom Quick Report Actions & Route Navigation Controls -->
+        <div class="driver-bottom-actions">
+            <button id="btnQuickReport" class="btn-quick-report" aria-label="Quick Report Pothole or Road Hazard">
+                <i class="fa-solid fa-bullhorn"></i>
+                <span>QUICK REPORT HAZARD</span>
+            </button>
+
+            <div class="simulation-toolbar">
+                <button id="btnStartNav" class="sim-btn nav-active">
+                    <i class="fa-solid fa-location-arrow"></i> Start Drive Navigation
+                </button>
+                <button id="btnNavSpeed" class="sim-btn">
+                    🚗 Speed: 1x (Normal)
+                </button>
+                <button id="btnSimulateBulk" class="sim-btn" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4);">
+                    ⚡ Trigger 50-Report Escalation
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- =========================================================================
+         VIEW 2: DPWH ADMIN DASHBOARD (Government Engineering Ops Console)
+         ========================================================================= -->
+    <main id="adminView" class="view-container">
+        <div class="admin-header">
+            <div class="admin-title-group">
+                <h1>
+                    <i class="fa-solid fa-hard-hat" style="color: var(--dpwh-gold);"></i> 
+                    DPWH Infrastructure & Road Hazard Operations
+                </h1>
+                <p>Department of Public Works and Highways — Bulacan District (Telematics & Crowdsourced Operations)</p>
+            </div>
+
+            <div class="admin-actions">
+                <button id="btnRefreshAdmin" class="btn-secondary">
+                    <i class="fa-solid fa-rotate"></i> Refresh Data
+                </button>
+                <button id="btnExportCSV" class="btn-primary">
+                    <i class="fa-solid fa-file-csv"></i> Export Work Orders (CSV)
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI Metric Summary Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-info">
+                    <label>Total Active Cases</label>
+                    <div id="kpiTotalCases" class="kpi-value">0</div>
+                </div>
+                <div class="kpi-icon"><i class="fa-solid fa-layer-group"></i></div>
+            </div>
+
+            <div class="kpi-card critical">
+                <div class="kpi-info">
+                    <label>Critical Cases (≥50 Pings)</label>
+                    <div id="kpiCriticalCases" class="kpi-value" style="color: var(--severity-critical);">0</div>
+                </div>
+                <div class="kpi-icon" style="color: var(--severity-critical);"><i class="fa-solid fa-circle-exclamation"></i></div>
+            </div>
+
+            <div class="kpi-card pending">
+                <div class="kpi-info">
+                    <label>Pending Action</label>
+                    <div id="kpiPendingCases" class="kpi-value" style="color: var(--severity-low);">0</div>
+                </div>
+                <div class="kpi-icon" style="color: var(--severity-low);"><i class="fa-solid fa-clock"></i></div>
+            </div>
+
+            <div class="kpi-card in-progress">
+                <div class="kpi-info">
+                    <label>In Progress Repair</label>
+                    <div id="kpiInProgressCases" class="kpi-value" style="color: var(--accent-cyan);">0</div>
+                </div>
+                <div class="kpi-icon" style="color: var(--accent-cyan);"><i class="fa-solid fa-person-digging"></i></div>
+            </div>
+
+            <div class="kpi-card resolved">
+                <div class="kpi-info">
+                    <label>Resolved Roadways</label>
+                    <div id="kpiResolvedCases" class="kpi-value" style="color: var(--accent-emerald);">0</div>
+                </div>
+                <div class="kpi-icon" style="color: var(--accent-emerald);"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Split Grid (Map + Filterable Table) -->
+        <div class="admin-split-layout">
+            <!-- Left: GIS Map View -->
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-map-location-dot" style="color: var(--accent-blue);"></i> GIS Hazard Map Overview</h3>
+                    <small style="color: var(--text-muted);">Real-time cluster centroids (Bulacan)</small>
+                </div>
+                <div id="adminMap"></div>
+            </div>
+
+            <!-- Right: Critical Cases & Work Order Data Table -->
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-list-check" style="color: var(--dpwh-gold);"></i> Engineering Dispatch Queue</h3>
+
+                    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                        <button class="sim-btn filter-btn active" data-filter="all">All</button>
+                        <button class="sim-btn filter-btn" data-filter="critical" style="color: #fca5a5;">Critical</button>
+                        <button class="sim-btn filter-btn" data-filter="telemetry" style="color: #e9d5ff;">📡 Telemetry</button>
+                        <button class="sim-btn filter-btn" data-filter="pending">Pending</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="custom-table">
+                        <thead>
+                            <tr>
+                                <th>Case ID</th>
+                                <th>Location (Coords)</th>
+                                <th>Detection Source</th>
+                                <th>Total Pings</th>
+                                <th>Severity</th>
+                                <th>Status Action</th>
+                                <th>Locate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCasesTbody">
+                            <!-- Rows injected dynamically by admin.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Leaflet JS Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    
+    <!-- LubakAlert Application Scripts & High-Res Road Geometries -->
+    <script src="js/road_data.js"></script>
+    <script src="js/mock_backend.js"></script>
+    <script src="js/driver.js"></script>
+    <script src="js/admin.js"></script>
+
+    <script>
+        function switchView(viewName) {
+            document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+            if (viewName === 'driver') {
+                document.getElementById('driverView').classList.add('active');
+                document.getElementById('navDriverBtn').classList.add('active');
+                setTimeout(() => DriverApp.refresh(), 150);
+            } else if (viewName === 'admin') {
+                document.getElementById('adminView').classList.add('active');
+                document.getElementById('navAdminBtn').classList.add('active');
+                
+                setTimeout(() => {
+                    AdminApp.loadAdminData();
+                    AdminApp.invalidateMap();
+                }, 100);
+                setTimeout(() => {
+                    AdminApp.invalidateMap();
+                }, 300);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            DriverApp.init();
+            AdminApp.init();
+
+            setTimeout(() => {
+                const isLive = LubakBackend.isLiveBackend();
+                const badgeText = document.getElementById('backendModeText');
+                if (badgeText) {
+                    badgeText.innerText = isLive ? 'Live PHP API Connected' : 'Simulated Engine Active';
+                }
+            }, 600);
+        });
+    </script>
+</body>
+</html>
