@@ -19,8 +19,8 @@ window.LubakBackend = (function () {
         cases: [
             {
                 id: 1,
-                center_latitude: 14.836000,
-                center_longitude: 120.844000,
+                center_latitude: 14.834000,
+                center_longitude: 120.866000,
                 total_reports: 142,
                 severity_level: 'Critical',
                 detection_type: 'Hybrid',
@@ -32,8 +32,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 2,
-                center_latitude: 14.842500,
-                center_longitude: 120.829000,
+                center_latitude: 14.845500,
+                center_longitude: 120.835900,
                 total_reports: 118,
                 severity_level: 'Critical',
                 detection_type: 'Hybrid',
@@ -45,8 +45,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 3,
-                center_latitude: 14.827500,
-                center_longitude: 120.852500,
+                center_latitude: 14.826000,
+                center_longitude: 120.884000,
                 total_reports: 135,
                 severity_level: 'Critical',
                 detection_type: 'Telemetry Speed Drop',
@@ -58,8 +58,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 4,
-                center_latitude: 14.848500,
-                center_longitude: 120.821000,
+                center_latitude: 14.852955,
+                center_longitude: 120.820700,
                 total_reports: 86,
                 severity_level: 'Critical',
                 detection_type: 'Hybrid',
@@ -84,8 +84,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 6,
-                center_latitude: 14.815000,
-                center_longitude: 120.868000,
+                center_latitude: 14.820028,
+                center_longitude: 120.900000,
                 total_reports: 58,
                 severity_level: 'Critical',
                 detection_type: 'Hybrid',
@@ -97,8 +97,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 7,
-                center_latitude: 14.810000,
-                center_longitude: 120.878000,
+                center_latitude: 14.817500,
+                center_longitude: 120.907800,
                 total_reports: 42,
                 severity_level: 'Moderate',
                 detection_type: 'Manual Report',
@@ -110,8 +110,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 8,
-                center_latitude: 14.796000,
-                center_longitude: 120.926000,
+                center_latitude: 14.798000,
+                center_longitude: 120.928000,
                 total_reports: 165,
                 severity_level: 'Critical',
                 detection_type: 'Telemetry Speed Drop',
@@ -123,8 +123,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 9,
-                center_latitude: 14.782000,
-                center_longitude: 120.940000,
+                center_latitude: 14.789000,
+                center_longitude: 120.936000,
                 total_reports: 94,
                 severity_level: 'Critical',
                 detection_type: 'Hybrid',
@@ -136,8 +136,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 10,
-                center_latitude: 14.755000,
-                center_longitude: 120.958000,
+                center_latitude: 14.756800,
+                center_longitude: 120.960500,
                 total_reports: 194,
                 severity_level: 'Critical',
                 detection_type: 'Hybrid',
@@ -149,8 +149,8 @@ window.LubakBackend = (function () {
             },
             {
                 id: 11,
-                center_latitude: 14.743000,
-                center_longitude: 120.958000,
+                center_latitude: 14.746000,
+                center_longitude: 120.960000,
                 total_reports: 72,
                 severity_level: 'Critical',
                 detection_type: 'Telemetry Speed Drop',
@@ -175,8 +175,8 @@ window.LubakBackend = (function () {
             }
         ],
         reports: [
-            { id: 1, case_id: 1, user_id: 1, latitude: 14.836005, longitude: 120.844002, report_type: 'Manual_Button', timestamp: '2026-07-31 09:15:00' },
-            { id: 2, case_id: 2, user_id: 2, latitude: 14.842505, longitude: 120.829003, report_type: 'Telematics_Slowdown_Ping', timestamp: '2026-08-01 10:15:00' }
+            { id: 1, case_id: 1, user_id: 1, latitude: 14.834005, longitude: 120.866003, report_type: 'Manual_Button', timestamp: '2026-07-31 09:15:00' },
+            { id: 2, case_id: 2, user_id: 2, latitude: 14.845505, longitude: 120.835903, report_type: 'Telematics_Slowdown_Ping', timestamp: '2026-08-01 10:15:00' }
         ]
     };
 

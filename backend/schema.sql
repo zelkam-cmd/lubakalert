@@ -55,19 +55,23 @@ INSERT INTO `users` (`id`, `name`, `device_info`) VALUES
 (2, 'Guiguinto Jeepney Driver #8821', 'Mobile Telematics Active'),
 (3, 'DPWH Bulacan Patrol Alpha', 'Fleet Unit');
 
+-- NOTE: coordinates below are snapped onto the corrected, real-world-verified
+-- MacArthur Highway alignment in js/road_data.js (see driver.js LOCATIONS comment).
+-- The previous Tabang/Guiguinto & Balagtas coordinates were ~2-3km off the actual
+-- highway, which made the driver navigation cut through blocks instead of the road.
 INSERT INTO `cases` (`id`, `center_latitude`, `center_longitude`, `total_reports`, `severity_level`, `detection_type`, `avg_speed_drop_kmh`, `status`, `address`, `created_at`) VALUES
 -- Guiguinto & Malolos Pipe Repair Bottlenecks
-(1, 14.83600000, 120.84400000, 142, 'Critical', 'Hybrid', 46.5, 'Pending', 'MacArthur Hwy (Tabang Spur, Guiguinto) - Pipe Laying & Single Lane Bottleneck', NOW() - INTERVAL 5 DAY),
-(2, 14.84250000, 120.82900000, 118, 'Critical', 'Hybrid', 44.0, 'Pending', 'MacArthur Hwy (Tikay, Malolos) - Water Pipe Trench & Unpaved Steel Plates', NOW() - INTERVAL 4 DAY),
-(3, 14.82750000, 120.85250000, 135, 'Critical', 'Telemetry Speed Drop', 42.0, 'In Progress', 'MacArthur Hwy (Guiguinto Poblacion) - Pipe Repair Digging & Asphalt Drop', NOW() - INTERVAL 3 DAY),
-(4, 14.84850000, 120.82100000, 86, 'Critical', 'Hybrid', 38.5, 'Pending', 'MacArthur Hwy (Sumapang Matanda, Malolos) - Single Lane Construction & Deep Potholes', NOW() - INTERVAL 2 DAY),
+(1, 14.83400000, 120.86600000, 142, 'Critical', 'Hybrid', 46.5, 'Pending', 'MacArthur Hwy (Tabang Spur, Guiguinto) - Pipe Laying & Single Lane Bottleneck', NOW() - INTERVAL 5 DAY),
+(2, 14.84550000, 120.83590000, 118, 'Critical', 'Hybrid', 44.0, 'Pending', 'MacArthur Hwy (Tikay, Malolos) - Water Pipe Trench & Unpaved Steel Plates', NOW() - INTERVAL 4 DAY),
+(3, 14.82600000, 120.88400000, 135, 'Critical', 'Telemetry Speed Drop', 42.0, 'In Progress', 'MacArthur Hwy (Guiguinto Poblacion) - Pipe Repair Digging & Asphalt Drop', NOW() - INTERVAL 3 DAY),
+(4, 14.85295500, 120.82070000, 86, 'Critical', 'Hybrid', 38.5, 'Pending', 'MacArthur Hwy (Sumapang Matanda, Malolos) - Single Lane Construction & Deep Potholes', NOW() - INTERVAL 2 DAY),
 
 -- Additional MacArthur Highway Hazard Hotspots
 (5, 14.85840000, 120.81620000, 46, 'Moderate', 'Manual Report', 20.0, 'Pending', 'MacArthur Hwy (BulSU Gate 1, Malolos) - Asphalt Cracks & Road Depression', NOW() - INTERVAL 6 DAY),
-(6, 14.81500000, 120.86800000, 58, 'Critical', 'Hybrid', 36.0, 'Pending', 'MacArthur Hwy (Borol 1st, Balagtas) - Deep Potholes & Culvert Digging', NOW() - INTERVAL 4 DAY),
-(7, 14.81000000, 120.87800000, 42, 'Moderate', 'Manual Report', 24.0, 'In Progress', 'MacArthur Hwy (Balagtas Town Center) - Unpaved Patch & Traffic Slowdown', NOW() - INTERVAL 3 DAY),
-(8, 14.79600000, 120.92600000, 165, 'Critical', 'Telemetry Speed Drop', 48.0, 'Pending', 'MacArthur Hwy (Bocaue River Bridge) - Severe Bridge Approach Pothole Trench', NOW() - INTERVAL 7 DAY),
-(9, 14.78200000, 120.94000000, 94, 'Critical', 'Hybrid', 41.5, 'Pending', 'MacArthur Hwy (Lolomboy, Bocaue) - Flooded Asphalt Potholes', NOW() - INTERVAL 5 DAY),
-(10, 14.75500000, 120.95800000, 194, 'Critical', 'Hybrid', 47.2, 'Pending', 'MacArthur Hwy (SM City Marilao / Abangan Sur) - Severe Waterlogged Pothole Cluster', NOW() - INTERVAL 8 DAY),
-(11, 14.74300000, 120.95800000, 72, 'Critical', 'Telemetry Speed Drop', 39.0, 'In Progress', 'MacArthur Hwy (Saluysoy, Meycauayan) - Drainage Excavation & Edge Drop', NOW() - INTERVAL 2 DAY),
+(6, 14.82002800, 120.90000000, 58, 'Critical', 'Hybrid', 36.0, 'Pending', 'MacArthur Hwy (Borol 1st, Balagtas) - Deep Potholes & Culvert Digging', NOW() - INTERVAL 4 DAY),
+(7, 14.81750000, 120.90780000, 42, 'Moderate', 'Manual Report', 24.0, 'In Progress', 'MacArthur Hwy (Balagtas Town Center) - Unpaved Patch & Traffic Slowdown', NOW() - INTERVAL 3 DAY),
+(8, 14.79800000, 120.92800000, 165, 'Critical', 'Telemetry Speed Drop', 48.0, 'Pending', 'MacArthur Hwy (Bocaue River Bridge) - Severe Bridge Approach Pothole Trench', NOW() - INTERVAL 7 DAY),
+(9, 14.78900000, 120.93600000, 94, 'Critical', 'Hybrid', 41.5, 'Pending', 'MacArthur Hwy (Lolomboy, Bocaue) - Flooded Asphalt Potholes', NOW() - INTERVAL 5 DAY),
+(10, 14.75680000, 120.96050000, 194, 'Critical', 'Hybrid', 47.2, 'Pending', 'MacArthur Hwy (SM City Marilao / Abangan Sur) - Severe Waterlogged Pothole Cluster', NOW() - INTERVAL 8 DAY),
+(11, 14.74600000, 120.96000000, 72, 'Critical', 'Telemetry Speed Drop', 39.0, 'In Progress', 'MacArthur Hwy (Saluysoy, Meycauayan) - Drainage Excavation & Edge Drop', NOW() - INTERVAL 2 DAY),
 (12, 14.73500000, 120.95750000, 87, 'Critical', 'Hybrid', 43.0, 'Pending', 'MacArthur Hwy (Malhacan Rd, Meycauayan) - Deep Junction Potholes', NOW() - INTERVAL 4 DAY);

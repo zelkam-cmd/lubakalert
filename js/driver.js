@@ -1,9 +1,11 @@
 /**
- * LubakAlert - Driver Mobile Navigation Engine
+ * LubakAlert - Driver Mobile Navigation & Route Engine
  * -------------------------------------------------------------
- * 100% High-Precision Road Curvature Alignment Engine
- * Uses 1,112+ node high-resolution OpenStreetMap road geometry traces (js/road_data.js)
- * Slices exact street curves between ANY selected Origin & Destination.
+ * CLEAN HIGHWAY ROUTING (No interior loops / backroad shortcuts):
+ * - BLUE Line (#3b82f6): MacArthur Highway (Manila North Road / R-8)
+ * - ORANGE Line (#f97316): North Luzon Expressway (NLEX / E1)
+ *
+ * Uses verified, clean highway node traces from js/road_data.js.
  */
 
 window.DriverApp = (function () {
@@ -16,20 +18,24 @@ window.DriverApp = (function () {
     let activeAlertedCaseIds = new Set();
     let activeTelemetryPingCaseIds = new Set();
 
-    // Preset Locations with GPS Anchors
+    // Preset Location Coordinates in Bulacan
+    // NOTE: These are verified against real MacArthur Highway landmarks (Wikipedia /
+    // geocoded municipal hall & interchange coordinates). The previous guiguinto_tabang
+    // and balagtas points were ~2-3km off the actual highway, which is why simulated
+    // navigation was cutting diagonally through blocks instead of following the road.
     const LOCATIONS = {
         'bulsu': { name: 'BulSU Gate 1, Malolos', lat: 14.858400, lng: 120.816200 },
-        'malolos_capitol': { name: 'Malolos Provincial Capitol', lat: 14.855300, lng: 120.813300 },
-        'guiguinto_tabang': { name: 'Tabang Junction, Guiguinto', lat: 14.836000, lng: 120.844000 },
-        'balagtas': { name: 'Balagtas Town Center', lat: 14.810000, lng: 120.878000 },
-        'bocaue_bridge': { name: 'Bocaue River Bridge', lat: 14.796000, lng: 120.926000 },
-        'marilao': { name: 'SM City Marilao', lat: 14.755000, lng: 120.958000 },
+        'malolos_capitol': { name: 'Malolos Provincial Capitol', lat: 14.856500, lng: 120.814340 },
+        'guiguinto_tabang': { name: 'Tabang Junction, Guiguinto', lat: 14.834000, lng: 120.866000 },
+        'balagtas': { name: 'Balagtas Town Center', lat: 14.817500, lng: 120.907800 },
+        'bocaue_bridge': { name: 'Bocaue River Bridge', lat: 14.798000, lng: 120.928000 },
+        'marilao': { name: 'SM City Marilao', lat: 14.756800, lng: 120.960500 },
         'meycauayan': { name: 'Meycauayan City Center', lat: 14.735000, lng: 120.957500 }
     };
 
     let currentOriginKey = 'bulsu';
     let currentDestKey = 'meycauayan';
-    let useNlexExpressway = false;
+    let useNlexExpressway = false; // Default: FALSE (Blue Line = MacArthur Highway)
 
     let routePoints = [];
     let currentRouteIndex = 0;
@@ -38,7 +44,7 @@ window.DriverApp = (function () {
 
     let isNavigating = false;
     let navInterval = null;
-    let navSpeed = 1;
+    let navSpeed = 0.5;
 
     function playHazardAudioAlert(distanceMeters, address, severity) {
         try {
@@ -69,9 +75,10 @@ window.DriverApp = (function () {
 
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
-                const text = `Caution! ${severity} road hazard ahead in ${Math.round(distanceMeters)} meters.`;
+                const routeName = useNlexExpressway ? 'NLEX Expressway' : 'MacArthur Highway';
+                const text = `Caution! ${severity} road hazard ahead in ${Math.round(distanceMeters)} meters on ${routeName}.`;
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 1.1;
+                utterance.rate = 1.05;
                 window.speechSynthesis.speak(utterance);
             }
         } catch (e) {
@@ -118,9 +125,6 @@ window.DriverApp = (function () {
         refreshCautionZones();
     }
 
-    /**
-     * Find nearest node index in high-res road array
-     */
     function findNearestNodeIndex(nodes, targetLat, targetLng) {
         let minD = Infinity;
         let bestIdx = 0;
@@ -137,17 +141,14 @@ window.DriverApp = (function () {
     }
 
     /**
-     * Slice High-Resolution 1,000+ Node Road Geometry
-     * Strictly aligns with every curve on OpenStreetMap / CartoDB map tiles!
+     * Slice Clean Highway Dataset (MacArthur or NLEX) strictly between Origin & Destination
      */
-    function getHighResRoadSubArray(origKey, destKey, isNlex) {
+    function getCleanHighwaySubArray(origKey, destKey, isNlex) {
         const fullRoadDataset = (window.LubakRoadData && isNlex) 
             ? window.LubakRoadData.nlex 
             : (window.LubakRoadData ? window.LubakRoadData.macarthur : []);
 
-        if (!fullRoadDataset || fullRoadDataset.length === 0) {
-            return [];
-        }
+        if (!fullRoadDataset || fullRoadDataset.length === 0) return [];
 
         const origObj = LOCATIONS[origKey] || LOCATIONS['bulsu'];
         const destObj = LOCATIONS[destKey] || LOCATIONS['meycauayan'];
@@ -163,18 +164,13 @@ window.DriverApp = (function () {
             isReverse = true;
         }
 
-        // Extract high-density road geometry segment
         let sliced = fullRoadDataset.slice(startIdx, endIdx + 1);
-
-        if (isReverse) {
-            sliced.reverse();
-        }
-
+        if (isReverse) sliced.reverse();
         return sliced;
     }
 
     /**
-     * Update Route Plan & Render High-Precision Road-Snapped Polyline
+     * Update Route Plan & Render Blue (MacArthur) or Orange (NLEX) Highway Polyline
      */
     async function updateRoutePlan() {
         const orig = LOCATIONS[currentOriginKey] || LOCATIONS['bulsu'];
@@ -194,7 +190,6 @@ window.DriverApp = (function () {
 
         if (driverMarker) driverMarker.setLatLng([orig.lat, orig.lng]);
 
-        // Markers
         if (startMarker) map.removeLayer(startMarker);
         if (destMarker) map.removeLayer(destMarker);
 
@@ -214,26 +209,27 @@ window.DriverApp = (function () {
             })
         }).addTo(map);
 
-        // 1. Fetch 100% High-Precision Road Geometry (Matches basemap street curves 1:1)
-        routePoints = getHighResRoadSubArray(currentOriginKey, currentDestKey, useNlexExpressway);
+        // Fetch verified, clean highway node points (MacArthur Highway vs NLEX Expressway)
+        routePoints = getCleanHighwaySubArray(currentOriginKey, currentDestKey, useNlexExpressway);
 
-        // Render Polyline on Map
+        // Color coding: BLUE for MacArthur Highway (#3b82f6), ORANGE for NLEX Expressway (#f97316)
+        let polylineColor = useNlexExpressway ? '#f97316' : '#3b82f6';
+        let routeName = useNlexExpressway ? 'NLEX Expressway (E1)' : 'MacArthur Highway (R-8)';
+
         if (routePolyline) map.removeLayer(routePolyline);
         routePolyline = L.polyline(routePoints, {
-            color: useNlexExpressway ? '#f59e0b' : '#3b82f6',
-            weight: 5,
+            color: polylineColor,
+            weight: 6,
             opacity: 0.9,
             lineCap: 'round',
             lineJoin: 'round'
         }).addTo(map);
 
-        // Fit map bounds to show route
         if (routePoints.length > 0) {
             const bounds = L.latLngBounds(routePoints);
             map.fitBounds(bounds, { padding: [60, 60] });
         }
 
-        let routeName = useNlexExpressway ? 'NLEX Expressway' : 'MacArthur Highway';
         updateRouteInfoDisplay(orig.name, dest.name, routeName);
     }
 
@@ -249,63 +245,22 @@ window.DriverApp = (function () {
     }
 
     async function refreshCautionZones() {
+        // Hazard-circle markers intentionally removed from the driver map (per request)
+        // so the route polyline itself can be inspected cleanly against the basemap.
+        // Proximity-based early-warning logic in checkProximityAndTelematics() below is
+        // unaffected -- it queries the case data directly and does not depend on these
+        // visual markers, so HUD warnings, audio alerts, and telemetry pings still work.
         if (!map) return;
-
         cautionCircles.forEach(c => map.removeLayer(c));
         cautionCircles = [];
-
-        const response = await LubakBackend.getCases('all');
-        if (!response.success || !response.cases) return;
-
-        response.cases.forEach(item => {
-            if (item.status === 'Resolved') return;
-
-            let lat = parseFloat(item.center_latitude);
-            let lng = parseFloat(item.center_longitude);
-            let reports = parseInt(item.total_reports);
-            let severity = item.severity_level;
-            let detType = item.detection_type || 'Manual Report';
-
-            let color = '#eab308';
-            let radius = 35;
-
-            if (severity === 'Critical' || reports >= 50) {
-                color = '#ef4444';
-                radius = 55;
-            } else if (severity === 'Moderate' || reports >= 10) {
-                color = '#f97316';
-                radius = 42;
-            }
-
-            if (detType.includes('Telemetry')) color = '#a855f7';
-
-            const circle = L.circle([lat, lng], {
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.35,
-                radius: radius,
-                weight: 2
-            }).addTo(map);
-
-            circle.bindPopup(`
-                <div style="font-family: sans-serif; color: #1e293b; padding: 4px;">
-                    <strong style="color: ${color}; font-size: 1.1em;">⚠️ ${severity.toUpperCase()} HAZARD</strong><br>
-                    <b>Location:</b> ${item.address || 'Bulacan Corridor'}<br>
-                    <b>Pings:</b> ${reports} (${detType})<br>
-                    <small>Status: ${item.status}</small>
-                </div>
-            `);
-
-            cautionCircles.push(circle);
-        });
     }
 
     async function checkProximityAndTelematics() {
         const response = await LubakBackend.getCases('all');
         if (!response.success || !response.cases) return;
 
-        const PROXIMITY_ALERT_RADIUS = 200.0;
-        const SLOWDOWN_DETECTION_RADIUS = 45.0;
+        const EARLY_WARNING_RADIUS = 400.0;
+        const SLOWDOWN_DETECTION_RADIUS = 50.0;
 
         let closestHazard = null;
         let minDistance = Infinity;
@@ -317,7 +272,7 @@ window.DriverApp = (function () {
             let lng = parseFloat(item.center_longitude);
             let dist = LubakBackend.calculateDistance(currentCoords.lat, currentCoords.lng, lat, lng);
 
-            if (dist <= PROXIMITY_ALERT_RADIUS && dist < minDistance) {
+            if (dist <= EARLY_WARNING_RADIUS && dist < minDistance) {
                 minDistance = dist;
                 closestHazard = item;
             }
@@ -331,8 +286,8 @@ window.DriverApp = (function () {
             let severity = closestHazard.severity_level;
             let address = closestHazard.address || 'Road Hazard';
 
-            if (minDistance <= 80) {
-                currentVehicleSpeedKmh = Math.max(10.0, 58.0 - (80 - minDistance) * 0.7);
+            if (minDistance <= 120) {
+                currentVehicleSpeedKmh = Math.max(10.0, 58.0 - (120 - minDistance) * 0.45);
             } else {
                 currentVehicleSpeedKmh = 58.0;
             }
@@ -344,7 +299,7 @@ window.DriverApp = (function () {
                     <div class="hud-warning-content ${severity.toLowerCase()}">
                         <div class="hud-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
                         <div class="hud-details">
-                            <div class="hud-title">HAZARD AHEAD (${Math.round(minDistance)}m)</div>
+                            <div class="hud-title">EARLY WARNING: HAZARD IN ${Math.round(minDistance)}m</div>
                             <div class="hud-sub">${severity.toUpperCase()}: ${address}</div>
                         </div>
                         <div class="hud-badge">${closestHazard.total_reports} Pings</div>
@@ -358,13 +313,13 @@ window.DriverApp = (function () {
                 playHazardAudioAlert(minDistance, address, severity);
             }
 
-            if (minDistance <= SLOWDOWN_DETECTION_RADIUS && currentVehicleSpeedKmh <= 22.0 && !activeTelemetryPingCaseIds.has(caseId)) {
+            if (minDistance <= SLOWDOWN_DETECTION_RADIUS && currentVehicleSpeedKmh <= 24.0 && !activeTelemetryPingCaseIds.has(caseId)) {
                 activeTelemetryPingCaseIds.add(caseId);
                 let speedDrop = 58.0 - currentVehicleSpeedKmh;
 
                 const res = await LubakBackend.submitReport(currentCoords.lat, currentCoords.lng, 1, 'Telematics_Slowdown_Ping', speedDrop);
                 if (res.success) {
-                    showToast(`📡 TELEMETRY PING: Speed dropped to ${Math.round(currentVehicleSpeedKmh)} km/h near hazard. Auto-registered!`, 'warning');
+                    showToast(`📡 TELEMETRY PING: Vehicle slowed to ${Math.round(currentVehicleSpeedKmh)} km/h near hazard. Auto-registered!`, 'warning');
                     refreshCautionZones();
                     if (window.AdminApp) window.AdminApp.loadAdminData();
                 }
@@ -390,8 +345,7 @@ window.DriverApp = (function () {
                 activeTelemetryPingCaseIds.clear();
             }
 
-            // Move vehicle smoothly along high-res road nodes
-            let stepAdvance = Math.max(1, Math.floor(routePoints.length / 250));
+            let stepAdvance = Math.max(1, Math.floor(routePoints.length / 320));
 
             navInterval = setInterval(() => {
                 if (currentRouteIndex < routePoints.length) {
@@ -403,7 +357,7 @@ window.DriverApp = (function () {
                     if (map) map.panTo([currentCoords.lat, currentCoords.lng]);
 
                     checkProximityAndTelematics();
-                    currentRouteIndex += (navSpeed * stepAdvance);
+                    currentRouteIndex += Math.ceil(navSpeed * stepAdvance);
                 } else {
                     isNavigating = false;
                     clearInterval(navInterval);
@@ -422,12 +376,12 @@ window.DriverApp = (function () {
 
     function toggleNavSpeed() {
         const btn = document.getElementById('btnNavSpeed');
-        if (navSpeed === 1) {
-            navSpeed = 2;
-            if (btn) btn.innerText = '⚡ Speed: 2x (Fast Drive)';
+        if (navSpeed === 0.5) {
+            navSpeed = 1.5;
+            if (btn) btn.innerText = '⚡ Speed: 1.5x (Fast Drive)';
         } else {
-            navSpeed = 1;
-            if (btn) btn.innerText = '🚗 Speed: 1x (Normal)';
+            navSpeed = 0.5;
+            if (btn) btn.innerText = '🚗 Speed: 0.5x (Normal)';
         }
     }
 
@@ -496,7 +450,7 @@ window.DriverApp = (function () {
             document.getElementById('toggleNlex')?.addEventListener('change', (e) => {
                 useNlexExpressway = e.target.checked;
                 updateRoutePlan();
-                showToast(useNlexExpressway ? '⚡ Routing changed to NLEX Expressway' : '🛣️ Routing changed to MacArthur Highway', 'success');
+                showToast(useNlexExpressway ? '⚡ Routing changed to NLEX Expressway (Orange Line)' : '🛣️ Routing changed to MacArthur Highway (Blue Line)', 'success');
             });
         },
         refresh: refreshCautionZones,
