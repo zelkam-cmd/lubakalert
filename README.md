@@ -16,7 +16,7 @@ lubakalert/
 ├── css/
 │   └── styles.css              # Cyber-Dark & Glassmorphism UI Styles
 ├── js/
-│   ├── road_data.js            # 1,112-Node High-Res OpenStreetMap Road Geometry Dataset
+│   ├── road_data.js            # High-Res Mapbox API Road Geometry Dataset (MacArthur & NLEX)
 │   ├── mock_backend.js         # Client-Side Fallback Engine (Runs browser preview offline)
 │   ├── driver.js               # Mobile Driver Navigation, 400m Early Warning & Telematics Engine
 │   └── admin.js                # DPWH Admin Dashboard, Work Order Data Table & CSV Exporter
@@ -26,7 +26,7 @@ lubakalert/
 
 ---
 
-## 🚀 Deployment Guide using XAMPP (Apache + MariaDB / MySQL + PHP)
+## 🚀 Deployment Guide using XAMPP
 
 Follow these step-by-step instructions to run LubakAlert with XAMPP on Windows:
 
@@ -80,8 +80,8 @@ Located at `backend/schema.sql`.
 2. **Automated Telematics Speed Drop Detection**:
    When vehicles slow down to <18 km/h over a pothole zone, the system auto-registers a telematics traffic ping (`Telematics_Slowdown_Ping`).
 
-3. **Interactive Route Planner & NLEX Toggle**:
-   Choose custom Origin & Destination points in Bulacan, or toggle between **MacArthur Highway** and **NLEX Expressway**.
+3. **Interactive Route Planner & Mapbox API Integration**:
+   Choose custom Origin & Destination points in Bulacan, or toggle between **MacArthur Highway** and **NLEX Expressway**. Powered by the **Mapbox Directions API** for flawless, high-resolution road geometry tracing that perfectly matches true GPS driving routes.
 
 4. **DPWH Admin Dashboard & CSV Work Order Exporter**:
    Filter critical cases, modify repair statuses (`Pending`, `In Progress`, `Resolved`), and export official work order CSV files (`DPWH_Bulacan_WorkOrders.csv`).
