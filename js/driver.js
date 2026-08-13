@@ -193,21 +193,8 @@ window.DriverApp = (function () {
         if (startMarker) map.removeLayer(startMarker);
         if (destMarker) map.removeLayer(destMarker);
 
-        startMarker = L.marker([orig.lat, orig.lng], {
-            icon: L.divIcon({
-                className: 'route-label-marker',
-                html: `<div style="background: #10b981; color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 700; font-size: 0.75rem; box-shadow: 0 4px 10px rgba(16,185,129,0.5);">🏁 ${orig.name}</div>`,
-                iconAnchor: [30, 25]
-            })
-        }).addTo(map);
-
-        destMarker = L.marker([dest.lat, dest.lng], {
-            icon: L.divIcon({
-                className: 'route-label-marker',
-                html: `<div style="background: #ef4444; color: #fff; padding: 4px 8px; border-radius: 12px; font-weight: 700; font-size: 0.75rem; box-shadow: 0 4px 10px rgba(239,68,68,0.5);">🚩 ${dest.name}</div>`,
-                iconAnchor: [30, 25]
-            })
-        }).addTo(map);
+        // The user requested removing the origin/destination markers to avoid clutter.
+        // We will keep them removed from the map.
 
         // Fetch verified, clean highway node points (MacArthur Highway vs NLEX Expressway)
         routePoints = getCleanHighwaySubArray(currentOriginKey, currentDestKey, useNlexExpressway);
@@ -245,14 +232,55 @@ window.DriverApp = (function () {
     }
 
     async function refreshCautionZones() {
-        // Hazard-circle markers intentionally removed from the driver map (per request)
-        // so the route polyline itself can be inspected cleanly against the basemap.
-        // Proximity-based early-warning logic in checkProximityAndTelematics() below is
-        // unaffected -- it queries the case data directly and does not depend on these
-        // visual markers, so HUD warnings, audio alerts, and telemetry pings still work.
         if (!map) return;
+
         cautionCircles.forEach(c => map.removeLayer(c));
         cautionCircles = [];
+
+        const response = await LubakBackend.getCases('all');
+        if (!response.success || !response.cases) return;
+
+        response.cases.forEach(item => {
+            if (item.status === 'Resolved') return;
+
+            let lat = parseFloat(item.center_latitude);
+            let lng = parseFloat(item.center_longitude);
+            let reports = parseInt(item.total_reports);
+            let severity = item.severity_level;
+            let detType = item.detection_type || 'Manual Report';
+
+            let color = '#eab308'; // Default moderate color
+            let radius = 35;
+
+            if (severity === 'Critical' || reports >= 50) {
+                color = '#ef4444'; // Red for critical
+                radius = 55;
+            } else if (severity === 'Moderate' || reports >= 10) {
+                color = '#f97316'; // Orange for moderate
+                radius = 42;
+            }
+
+            if (detType.includes('Telemetry')) color = '#a855f7'; // Purple for telemetry
+
+            const circle = L.circle([lat, lng], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.35,
+                radius: radius,
+                weight: 2
+            }).addTo(map);
+
+            circle.bindPopup(`
+                <div style="font-family: sans-serif; color: #1e293b; padding: 4px;">
+                    <strong style="color: ${color}; font-size: 1.1em;">⚠️ ${severity.toUpperCase()} HAZARD</strong><br>
+                    <b>Location:</b> ${item.address || 'Bulacan Corridor'}<br>
+                    <b>Pings:</b> ${reports} (${detType})<br>
+                    <small>Status: ${item.status}</small>
+                </div>
+            `);
+
+            cautionCircles.push(circle);
+        });
     }
 
     async function checkProximityAndTelematics() {
