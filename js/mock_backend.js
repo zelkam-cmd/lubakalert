@@ -9,8 +9,12 @@
 window.LubakBackend = (function () {
     let useLiveBackend = false; 
 
-    // 12 Pre-Populated Real-World Bulacan Hazard Cases (Pipe Repair Bottlenecks & High Pings)
-    let mockState = {
+    function saveState() {
+        localStorage.setItem('lubakAlertMockState_v4', JSON.stringify(mockState));
+    }
+
+    // 24 Pre-Populated Real-World Bulacan Hazard Cases
+    let mockState = JSON.parse(localStorage.getItem('lubakAlertMockState_v4')) || {
         users: [
             { id: 1, name: 'BulSU Student Driver #1042', device_info: 'Mobile Telematics Active' },
             { id: 2, name: 'Guiguinto Jeepney Driver #8821', device_info: 'Mobile Telematics Active' },
@@ -172,6 +176,162 @@ window.LubakBackend = (function () {
                 created_at: '2026-08-01 10:00:00',
                 updated_at: '2026-08-05 09:30:00',
                 address: 'MacArthur Hwy (Malhacan Rd, Meycauayan) Deep Junction Pothole Cluster'
+            },
+            {
+                id: 13,
+                center_latitude: 14.8143,
+                center_longitude: 121.0505,
+                total_reports: 35,
+                severity_level: 'Moderate',
+                detection_type: 'Manual Report',
+                avg_speed_drop_kmh: 12.0,
+                status: 'Pending',
+                created_at: '2026-08-10 09:15:00',
+                updated_at: '2026-08-12 11:20:00',
+                address: 'San Jose del Monte (Muzon) Pothole Cluster'
+            },
+            {
+                id: 14,
+                center_latitude: 14.7735,
+                center_longitude: 120.9472,
+                total_reports: 55,
+                severity_level: 'Critical',
+                detection_type: 'Hybrid',
+                avg_speed_drop_kmh: 42.0,
+                status: 'Pending',
+                created_at: '2026-08-11 14:15:00',
+                updated_at: '2026-08-13 16:20:00',
+                address: 'Marilao (MacArthur Highway) Deep Sinkhole'
+            },
+            {
+                id: 15,
+                center_latitude: 14.8872,
+                center_longitude: 120.8583,
+                total_reports: 22,
+                severity_level: 'Moderate',
+                detection_type: 'Telemetry Speed Drop',
+                avg_speed_drop_kmh: 22.0,
+                status: 'Pending',
+                created_at: '2026-08-12 08:10:00',
+                updated_at: '2026-08-13 10:12:00',
+                address: 'Plaridel Bypass Road Rough Patch'
+            },
+            {
+                id: 16,
+                center_latitude: 14.8966,
+                center_longitude: 120.8142,
+                total_reports: 14,
+                severity_level: 'Moderate',
+                detection_type: 'Manual Report',
+                avg_speed_drop_kmh: 8.0,
+                status: 'Pending',
+                created_at: '2026-08-14 10:15:00',
+                updated_at: '2026-08-15 11:20:00',
+                address: 'Baliuag Highway Road Works'
+            },
+            {
+                id: 17,
+                center_latitude: 14.9333,
+                center_longitude: 120.9000,
+                total_reports: 88,
+                severity_level: 'Critical',
+                detection_type: 'Hybrid',
+                avg_speed_drop_kmh: 38.5,
+                status: 'Pending',
+                created_at: '2026-08-15 08:30:00',
+                updated_at: '2026-08-16 09:45:00',
+                address: 'San Rafael Bypass Accident Debris'
+            },
+            {
+                id: 18,
+                center_latitude: 14.8667,
+                center_longitude: 120.9333,
+                total_reports: 62,
+                severity_level: 'Critical',
+                detection_type: 'Telemetry Speed Drop',
+                avg_speed_drop_kmh: 40.0,
+                status: 'Pending',
+                created_at: '2026-08-13 14:00:00',
+                updated_at: '2026-08-16 10:00:00',
+                address: 'Bustos Plaridel Border Huge Sinkhole'
+            },
+            {
+                id: 19,
+                center_latitude: 14.9500,
+                center_longitude: 120.9833,
+                total_reports: 25,
+                severity_level: 'Moderate',
+                detection_type: 'Manual Report',
+                avg_speed_drop_kmh: 15.0,
+                status: 'Pending',
+                created_at: '2026-08-16 07:10:00',
+                updated_at: '2026-08-16 12:30:00',
+                address: 'San Ildefonso Rough Pavement'
+            },
+            {
+                id: 20,
+                center_latitude: 14.7333,
+                center_longitude: 120.9667,
+                total_reports: 115,
+                severity_level: 'Critical',
+                detection_type: 'Hybrid',
+                avg_speed_drop_kmh: 50.0,
+                status: 'Pending',
+                created_at: '2026-08-12 16:20:00',
+                updated_at: '2026-08-16 11:15:00',
+                address: 'Meycauayan NLEX Exit Severe Bottleneck'
+            },
+            {
+                id: 21,
+                center_latitude: 14.9167,
+                center_longitude: 120.7667,
+                total_reports: 120,
+                severity_level: 'Critical',
+                detection_type: 'Hybrid',
+                avg_speed_drop_kmh: 45.0,
+                status: 'Pending',
+                created_at: '2026-08-16 09:00:00',
+                updated_at: '2026-08-16 11:00:00',
+                address: 'Calumpit (MacArthur Hwy) Deep Flood Damage'
+            },
+            {
+                id: 22,
+                center_latitude: 14.8333,
+                center_longitude: 120.7333,
+                total_reports: 55,
+                severity_level: 'Moderate',
+                detection_type: 'Manual Report',
+                avg_speed_drop_kmh: 20.0,
+                status: 'Pending',
+                created_at: '2026-08-16 08:30:00',
+                updated_at: '2026-08-16 10:15:00',
+                address: 'Hagonoy Town Proper Potholes'
+            },
+            {
+                id: 23,
+                center_latitude: 14.8550,
+                center_longitude: 120.7550,
+                total_reports: 80,
+                severity_level: 'Critical',
+                detection_type: 'Telemetry Speed Drop',
+                avg_speed_drop_kmh: 42.0,
+                status: 'Pending',
+                created_at: '2026-08-15 14:00:00',
+                updated_at: '2026-08-16 12:00:00',
+                address: 'Hagonoy-Paombong Border Subsidence'
+            },
+            {
+                id: 24,
+                center_latitude: 14.9050,
+                center_longitude: 120.7500,
+                total_reports: 30,
+                severity_level: 'Low',
+                detection_type: 'Manual Report',
+                avg_speed_drop_kmh: 10.0,
+                status: 'Pending',
+                created_at: '2026-08-16 07:00:00',
+                updated_at: '2026-08-16 11:30:00',
+                address: 'Calumpit Inner Road Alleyway Pothole'
             }
         ],
         reports: [
@@ -283,6 +443,7 @@ window.LubakBackend = (function () {
                     timestamp: new Date().toISOString()
                 });
 
+                saveState();
                 return {
                     success: true,
                     message: reportType === 'Telematics_Slowdown_Ping' 
@@ -330,6 +491,7 @@ window.LubakBackend = (function () {
                     timestamp: new Date().toISOString()
                 });
 
+                saveState();
                 return {
                     success: true,
                     message: reportType === 'Telematics_Slowdown_Ping'
@@ -404,6 +566,7 @@ window.LubakBackend = (function () {
             if (c) {
                 c.status = status;
                 c.updated_at = new Date().toISOString().replace('T', ' ').substring(0, 19);
+                saveState();
                 return { success: true, message: `Status updated to ${status}` };
             }
             return { success: false, error: 'Case not found' };

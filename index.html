@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>LubakAlert - Crowdsourced Road Hazard Mapping & Telematics System</title>
     
     <!-- Leaflet.js CSS for Interactive Maps -->
@@ -47,7 +50,7 @@
             <div class="status-toast-bar">
                 <div class="gps-indicator">
                     <span class="pulse-icon"></span>
-                    <span id="gpsStatusText">Route: BulSU Gate 1 ➔ Meycauayan</span>
+                    <span id="gpsStatusText">Route: Select Origin and Destination</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 0.6rem;">
                     <span id="routeTypeBadge" class="route-type-badge mcarthur">🛣️ MacArthur Highway</span>
@@ -60,27 +63,19 @@
             <!-- Route Input & NLEX Option Planner -->
             <div class="route-planner-card">
                 <div class="route-planner-row">
-                    <div class="route-select-group">
-                        <label><i class="fa-solid fa-location-dot" style="color: #10b981;"></i> Where you are (Origin)</label>
-                        <select id="selectOrigin" class="route-select">
-                            <option value="bulsu" selected> BulSU Gate 1, Malolos</option>
-                            <option value="malolos_capitol"> Malolos Provincial Capitol</option>
-                            <option value="guiguinto_tabang"> Tabang Junction, Guiguinto</option>
-                            <option value="balagtas"> Balagtas Town Center</option>
-                            <option value="bocaue_bridge"> Bocaue River Bridge</option>
-                            <option value="marilao"> SM City Marilao</option>
-                        </select>
+                    <div class="route-select-group" style="position: relative;">
+                          <label style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                              <span><i class="fa-solid fa-location-dot" style="color: #10b981;"></i> Where you are (Origin)</span>
+                              <button id="btnCurrentLocation" style="background: none; border: none; color: #60a5fa; font-size: 0.75rem; cursor: pointer; padding: 0; font-weight: 700; transition: color 0.2s;"><i class="fa-solid fa-crosshairs"></i> Locate Me</button>
+                          </label>
+                        <input type="text" id="inputOrigin" class="route-input" placeholder="Search Bulacan origin..." autocomplete="off">
+                        <div id="originSuggestions" class="autocomplete-list" style="display: none;"></div>
                     </div>
 
-                    <div class="route-select-group">
+                    <div class="route-select-group" style="position: relative;">
                         <label><i class="fa-solid fa-flag-checkered" style="color: #ef4444;"></i> Where you're going (Destination)</label>
-                        <select id="selectDestination" class="route-select">
-                            <option value="meycauayan" selected> Meycauayan City Center</option>
-                            <option value="marilao"> SM City Marilao</option>
-                            <option value="bocaue_bridge"> Bocaue River Bridge</option>
-                            <option value="guiguinto_tabang"> Tabang, Guiguinto</option>
-                            <option value="malolos_capitol"> Malolos Capitol</option>
-                        </select>
+                        <input type="text" id="inputDestination" class="route-input" placeholder="Search Bulacan destination..." autocomplete="off">
+                        <div id="destSuggestions" class="autocomplete-list" style="display: none;"></div>
                     </div>
 
                     <!-- NLEX Expressway Toggle Option -->
@@ -237,10 +232,9 @@
     <!-- Leaflet JS Library -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
-    <!-- LubakAlert Application Scripts & High-Res Road Geometries -->
-    <script src="js/road_data.js?v=4"></script>
-    <script src="js/mock_backend.js"></script>
-    <script src="js/driver.js?v=4"></script>
+    <!-- LubakAlert Application Scripts -->
+    <script src="js/mock_backend.js?v=3"></script>
+    <script src="js/driver.js?v=16"></script>
     <script src="js/admin.js"></script>
 
     <script>

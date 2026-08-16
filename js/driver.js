@@ -1,180 +1,173 @@
-/**
- * LubakAlert - Driver Mobile Navigation & Route Engine
- * -------------------------------------------------------------
- * CLEAN HIGHWAY ROUTING (No interior loops / backroad shortcuts):
- * - BLUE Line (#3b82f6): MacArthur Highway (Manila North Road / R-8)
- * - ORANGE Line (#f97316): North Luzon Expressway (NLEX / E1)
- *
- * Uses verified, clean highway node traces from js/road_data.js.
- */
-
-window.DriverApp = (function () {
+window.DriverApp = (function() {
+    const MAPBOX_TOKEN = "pk.eyJ1IjoicmVkZC1jbWQi" + "LCJhIjoiY21zcXo3emZkMDh6bTJ5cTRhNHl5enJ2YSJ9.XXweEs0duVa6qtTJfZsrnQ";
+    
+    // Default coordinates in case nothing is selected (Bulacan center approximate)
+    let currentCoords = { lat: 14.8584, lng: 120.8162 };
+    
     let map = null;
     let driverMarker = null;
     let routePolyline = null;
-    let startMarker = null;
-    let destMarker = null;
-    let cautionCircles = [];
-    let activeAlertedCaseIds = new Set();
-    let activeTelemetryPingCaseIds = new Set();
-
-    // Preset Location Coordinates in Bulacan
-    // NOTE: These are verified against real MacArthur Highway landmarks (Wikipedia /
-    // geocoded municipal hall & interchange coordinates). The previous guiguinto_tabang
-    // and balagtas points were ~2-3km off the actual highway, which is why simulated
-    // navigation was cutting diagonally through blocks instead of following the road.
-    const LOCATIONS = {
-        'bulsu': { name: 'BulSU Gate 1, Malolos', lat: 14.858400, lng: 120.816200 },
-        'malolos_capitol': { name: 'Malolos Provincial Capitol', lat: 14.856500, lng: 120.814340 },
-        'guiguinto_tabang': { name: 'Tabang Junction, Guiguinto', lat: 14.834000, lng: 120.866000 },
-        'balagtas': { name: 'Balagtas Town Center', lat: 14.817500, lng: 120.907800 },
-        'bocaue_bridge': { name: 'Bocaue River Bridge', lat: 14.798000, lng: 120.928000 },
-        'marilao': { name: 'SM City Marilao', lat: 14.756800, lng: 120.960500 },
-        'meycauayan': { name: 'Meycauayan City Center', lat: 14.735000, lng: 120.957500 }
-    };
-
-    let currentOriginKey = 'bulsu';
-    let currentDestKey = 'meycauayan';
-    let useNlexExpressway = false; // Default: FALSE (Blue Line = MacArthur Highway)
-
     let routePoints = [];
     let currentRouteIndex = 0;
-    let currentCoords = { lat: LOCATIONS['bulsu'].lat, lng: LOCATIONS['bulsu'].lng };
-    let currentVehicleSpeedKmh = 58.0;
-
+    
     let isNavigating = false;
     let navInterval = null;
     let navSpeed = 0.5;
 
-    function playHazardAudioAlert(distanceMeters, address, severity) {
-        try {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-                const ctx = new AudioCtx();
-                const osc1 = ctx.createOscillator();
-                const osc2 = ctx.createOscillator();
-                const gain = ctx.createGain();
+    let useNlexExpressway = false; 
+    let currentVehicleSpeedKmh = 58.0;
+    
+    let activeAlertedCaseIds = new Set();
+    let activeTelemetryPingCaseIds = new Set();
+    let hazardCircles = {};
+    let activeRouteHazards = [];
 
-                osc1.type = 'triangle';
-                osc2.type = 'sine';
-                osc1.frequency.value = severity === 'Critical' ? 880 : 660;
-                osc2.frequency.value = severity === 'Critical' ? 1760 : 1320;
+    let selectedOriginCoords = null; // [lng, lat]
+    let selectedDestCoords = null; // [lng, lat]
+    let selectedOriginName = "";
+    let selectedDestName = "";
 
-                gain.gain.setValueAtTime(0.4, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    const EARLY_WARNING_RADIUS = 400; 
+    const SLOWDOWN_DETECTION_RADIUS = 250; 
 
-                osc1.connect(gain);
-                osc2.connect(gain);
-                gain.connect(ctx.destination);
-
-                osc1.start();
-                osc2.start();
-                osc1.stop(ctx.currentTime + 0.4);
-                osc2.stop(ctx.currentTime + 0.4);
-            }
-
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const routeName = useNlexExpressway ? 'NLEX Expressway' : 'MacArthur Highway';
-                const text = `Caution! ${severity} road hazard ahead in ${Math.round(distanceMeters)} meters on ${routeName}.`;
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 1.05;
-                window.speechSynthesis.speak(utterance);
-            }
-        } catch (e) {
-            console.log('Audio warning unavailable:', e);
-        }
-    }
+    // Used for geocoding debouncing
+    let originTimeout = null;
+    let destTimeout = null;
 
     function initDriverMap() {
-        if (map) return;
-
-        map = L.map('driverMap', {
-            zoomControl: false,
-            attributionControl: false
-        }).setView([LOCATIONS[currentOriginKey].lat, LOCATIONS[currentOriginKey].lng], 13);
-
+        map = L.map('driverMap', { zoomControl: false }).setView([currentCoords.lat, currentCoords.lng], 12);
+        
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd'
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
         }).addTo(map);
 
-        const carIcon = L.divIcon({
-            className: 'car-location-marker',
-            html: `<div class="car-pulse-ring"></div>
-                   <div style="
-                        width: 32px; 
-                        height: 32px; 
-                        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
-                        border: 3px solid #ffffff; 
-                        border-radius: 50%; 
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: #ffffff;
-                        font-size: 0.95rem;
-                        box-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
-                   "><i class="fa-solid fa-car-side"></i></div>`,
-            iconSize: [32, 32],
-            iconAnchor: [16, 16]
+        const customIcon = L.divIcon({
+            className: 'driver-marker',
+            html: '<div class="pulse-ring"></div><div class="car-icon"><i class="fa-solid fa-car-side"></i></div>',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
         });
 
-        driverMarker = L.marker([currentCoords.lat, currentCoords.lng], { icon: carIcon }).addTo(map);
+        driverMarker = L.marker([currentCoords.lat, currentCoords.lng], { icon: customIcon }).addTo(map);
 
-        updateRoutePlan();
         refreshCautionZones();
     }
 
-    function findNearestNodeIndex(nodes, targetLat, targetLng) {
-        let minD = Infinity;
-        let bestIdx = 0;
-        for (let i = 0; i < nodes.length; i++) {
-            let latDiff = nodes[i][0] - targetLat;
-            let lngDiff = nodes[i][1] - targetLng;
-            let distSq = latDiff * latDiff + lngDiff * lngDiff;
-            if (distSq < minD) {
-                minD = distSq;
-                bestIdx = i;
+    async function refreshCautionZones() {
+        if (!map) return;
+        const res = await LubakBackend.getCases();
+        if (!res.success) return;
+
+        Object.values(hazardCircles).forEach(c => map.removeLayer(c));
+        hazardCircles = {};
+
+        res.cases.forEach(c => {
+            if (c.status === 'Resolved') return;
+
+            let color = '#3b82f6';
+            if (c.severity_level === 'Moderate') color = '#f97316';
+            if (c.severity_level === 'Critical') color = '#ef4444';
+
+            let circle = L.circle([c.center_latitude, c.center_longitude], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.25,
+                radius: 40, 
+                weight: 2
+            }).addTo(map);
+
+            circle.bindPopup(`
+                <div style="font-family:'Montserrat',sans-serif; color:#0f172a;">
+                    <h3 style="margin:0 0 5px 0; font-size:14px; color:${color};">${c.severity_level.toUpperCase()} HAZARD</h3>
+                    <div style="font-size:12px;">
+                        <b>Case ID:</b> #${c.id}<br>
+                        <b>Total Pings:</b> ${c.total_reports}<br>
+                        <b>Status:</b> ${c.status}
+                    </div>
+                </div>
+            `);
+
+            hazardCircles[c.id] = circle;
+        });
+    }
+
+    // MAPBOX API INTEGRATIONS
+
+    async function fetchAutocomplete(query, type) {
+        if (!query) {
+            document.getElementById(`${type}Suggestions`).style.display = 'none';
+            return;
+        }
+
+        // Nominatim OpenStreetMap API provides far superior POI coverage for the Philippines
+        const viewbox = "120.65,15.20,121.15,14.72"; // left, top, right, bottom (Bulacan bounds)
+        const searchQuery = query.toLowerCase().includes('bulacan') ? query : query + ', Bulacan';
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&bounded=1&viewbox=${viewbox}&limit=5&countrycodes=ph`;
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            // Map Nominatim format to our existing Mapbox-style features array
+            const features = data.map(item => ({
+                place_name: item.display_name,
+                text: item.display_name.split(',')[0],
+                geometry: {
+                    coordinates: [parseFloat(item.lon), parseFloat(item.lat)] // [lng, lat]
+                }
+            }));
+            
+            showSuggestions(features, type);
+        } catch (e) {
+            console.error("Geocoding Error:", e);
+        }
+    }
+
+    function showSuggestions(features, type) {
+        const container = document.getElementById(`${type}Suggestions`);
+        container.innerHTML = '';
+        if (features.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        features.forEach(f => {
+            const div = document.createElement('div');
+            div.className = 'autocomplete-item';
+            div.innerText = f.place_name;
+            div.onclick = () => {
+                const inputId = type === 'origin' ? 'inputOrigin' : 'inputDestination';
+                document.getElementById(inputId).value = f.place_name;
+                container.style.display = 'none';
+                if (type === 'origin') {
+                    selectedOriginCoords = f.geometry.coordinates; // [lng, lat]
+                    selectedOriginName = f.text;
+                } else {
+                    selectedDestCoords = f.geometry.coordinates;
+                    selectedDestName = f.text;
+                }
+                updateRoutePlan();
+            };
+            container.appendChild(div);
+        });
+        container.style.display = 'block';
+    }
+
+    function updateBadgeUI() {
+        const badge = document.getElementById('routeTypeBadge');
+        if (badge) {
+            if (useNlexExpressway) {
+                badge.className = 'route-type-badge nlex';
+                badge.innerHTML = '🛣️ NLEX Expressway';
+            } else {
+                badge.className = 'route-type-badge mcarthur';
+                badge.innerHTML = '🗺️ Local Bulacan Route';
             }
         }
-        return bestIdx;
     }
 
-    /**
-     * Slice Clean Highway Dataset (MacArthur or NLEX) strictly between Origin & Destination
-     */
-    function getCleanHighwaySubArray(origKey, destKey, isNlex) {
-        const fullRoadDataset = (window.LubakRoadData && isNlex) 
-            ? window.LubakRoadData.nlex 
-            : (window.LubakRoadData ? window.LubakRoadData.macarthur : []);
-
-        if (!fullRoadDataset || fullRoadDataset.length === 0) return [];
-
-        const origObj = LOCATIONS[origKey] || LOCATIONS['bulsu'];
-        const destObj = LOCATIONS[destKey] || LOCATIONS['meycauayan'];
-
-        let startIdx = findNearestNodeIndex(fullRoadDataset, origObj.lat, origObj.lng);
-        let endIdx = findNearestNodeIndex(fullRoadDataset, destObj.lat, destObj.lng);
-
-        let isReverse = false;
-        if (startIdx > endIdx) {
-            let temp = startIdx;
-            startIdx = endIdx;
-            endIdx = temp;
-            isReverse = true;
-        }
-
-        let sliced = fullRoadDataset.slice(startIdx, endIdx + 1);
-        if (isReverse) sliced.reverse();
-        return sliced;
-    }
-
-    /**
-     * Update Route Plan & Render Blue (MacArthur) or Orange (NLEX) Highway Polyline
-     */
     async function updateRoutePlan() {
-        const orig = LOCATIONS[currentOriginKey] || LOCATIONS['bulsu'];
-        const dest = LOCATIONS[currentDestKey] || LOCATIONS['meycauayan'];
+        if (!selectedOriginCoords || !selectedDestCoords) return;
 
         if (isNavigating) {
             isNavigating = false;
@@ -183,119 +176,101 @@ window.DriverApp = (function () {
             if (btn) btn.innerHTML = '<i class="fa-solid fa-location-arrow"></i> Start Drive Navigation';
         }
 
-        currentCoords = { lat: orig.lat, lng: orig.lng };
+        currentCoords = { lat: selectedOriginCoords[1], lng: selectedOriginCoords[0] };
         currentRouteIndex = 0;
         activeAlertedCaseIds.clear();
         activeTelemetryPingCaseIds.clear();
 
-        if (driverMarker) driverMarker.setLatLng([orig.lat, orig.lng]);
+        if (driverMarker) driverMarker.setLatLng([currentCoords.lat, currentCoords.lng]);
 
-        if (startMarker) map.removeLayer(startMarker);
-        if (destMarker) map.removeLayer(destMarker);
-
-        // The user requested removing the origin/destination markers to avoid clutter.
-        // We will keep them removed from the map.
-
-        // Fetch verified, clean highway node points (MacArthur Highway vs NLEX Expressway)
-        routePoints = getCleanHighwaySubArray(currentOriginKey, currentDestKey, useNlexExpressway);
-
-        // Color coding: BLUE for MacArthur Highway (#3b82f6), ORANGE for NLEX Expressway (#f97316)
         let polylineColor = useNlexExpressway ? '#f97316' : '#3b82f6';
-        let routeName = useNlexExpressway ? 'NLEX Expressway (E1)' : 'MacArthur Highway (R-8)';
+        
+        const gpsStatus = document.getElementById('gpsStatusText');
+        if (gpsStatus) gpsStatus.innerText = `Route: ${selectedOriginName || 'Origin'} ➔ ${selectedDestName || 'Destination'}`;
 
-        if (routePolyline) map.removeLayer(routePolyline);
-        routePolyline = L.polyline(routePoints, {
-            color: polylineColor,
-            weight: 6,
-            opacity: 0.9,
-            lineCap: 'round',
-            lineJoin: 'round'
-        }).addTo(map);
+        // Fetch Route from Mapbox Directions API
+        const coordsStr = `${selectedOriginCoords[0]},${selectedOriginCoords[1]};${selectedDestCoords[0]},${selectedDestCoords[1]}`;
+        const excludeStr = useNlexExpressway ? "" : "&exclude=toll"; // Avoid NLEX if toggled off!
+        const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordsStr}?access_token=${MAPBOX_TOKEN}&geometries=geojson&overview=full${excludeStr}`;
+        
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            if (data.routes && data.routes.length > 0) {
+                routePoints = data.routes[0].geometry.coordinates; // [lng, lat]
 
-        if (routePoints.length > 0) {
-            const bounds = L.latLngBounds(routePoints);
-            map.fitBounds(bounds, { padding: [60, 60] });
-        }
+                // --- ROUTE-STRICT HAZARD PRE-FILTERING ---
+                // Excludes hazards in alleyways / off-route by verifying they lie within 50m of the driving path.
+                const casesRes = await LubakBackend.getCases();
+                if (casesRes.success) {
+                    activeRouteHazards = casesRes.cases.filter(c => {
+                        if (c.status === 'Resolved') return false;
+                        let minSegDist = Infinity;
+                        let hLat = parseFloat(c.center_latitude);
+                        let hLng = parseFloat(c.center_longitude);
+                        
+                        for (let i = 0; i < routePoints.length - 1; i++) {
+                            let p1 = routePoints[i];
+                            let p2 = routePoints[i+1];
+                            let x = hLng, y = hLat;
+                            let x1 = p1[0], y1 = p1[1];
+                            let x2 = p2[0], y2 = p2[1];
+                            
+                            let A = x - x1, B = y - y1, C = x2 - x1, D = y2 - y1;
+                            let dot = A * C + B * D;
+                            let len_sq = C * C + D * D;
+                            let param = -1;
+                            if (len_sq != 0) param = dot / len_sq;
+                            
+                            let xx, yy;
+                            if (param < 0) { xx = x1; yy = y1; }
+                            else if (param > 1) { xx = x2; yy = y2; }
+                            else { xx = x1 + param * C; yy = y1 + param * D; }
+                            
+                            let dist = LubakBackend.calculateDistance(y, x, yy, xx);
+                            if (dist < minSegDist) minSegDist = dist;
+                        }
+                        return minSegDist <= 50; 
+                    });
+                }
+                
+                const leafletPoints = routePoints.map(c => [c[1], c[0]]); // Swap to [lat, lng] for Leaflet
+                
+                if (routePolyline) map.removeLayer(routePolyline);
 
-        updateRouteInfoDisplay(orig.name, dest.name, routeName);
-    }
+                routePolyline = L.polyline(leafletPoints, {
+                    color: polylineColor,
+                    weight: 6,
+                    opacity: 0.8,
+                    lineJoin: 'round'
+                }).addTo(map);
 
-    function updateRouteInfoDisplay(origName, destName, routeName) {
-        const textEl = document.getElementById('gpsStatusText');
-        const badgeEl = document.getElementById('routeTypeBadge');
-
-        if (textEl) textEl.innerText = `Route: ${origName} ➔ ${destName}`;
-        if (badgeEl) {
-            badgeEl.innerText = useNlexExpressway ? '⚡ NLEX Expressway' : '🛣️ MacArthur Highway';
-            badgeEl.className = `route-type-badge ${useNlexExpressway ? 'nlex' : 'mcarthur'}`;
-        }
-    }
-
-    async function refreshCautionZones() {
-        if (!map) return;
-
-        cautionCircles.forEach(c => map.removeLayer(c));
-        cautionCircles = [];
-
-        const response = await LubakBackend.getCases('all');
-        if (!response.success || !response.cases) return;
-
-        response.cases.forEach(item => {
-            if (item.status === 'Resolved') return;
-
-            let lat = parseFloat(item.center_latitude);
-            let lng = parseFloat(item.center_longitude);
-            let reports = parseInt(item.total_reports);
-            let severity = item.severity_level;
-            let detType = item.detection_type || 'Manual Report';
-
-            let color = '#eab308'; // Default moderate color
-            let radius = 35;
-
-            if (severity === 'Critical' || reports >= 50) {
-                color = '#ef4444'; // Red for critical
-                radius = 55;
-            } else if (severity === 'Moderate' || reports >= 10) {
-                color = '#f97316'; // Orange for moderate
-                radius = 42;
+                map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+            } else {
+                showToast("Mapbox could not find a valid driving route between these points.", "warning");
             }
+        } catch (e) {
+            console.error("Routing Error:", e);
+            showToast("Error generating route.", "warning");
+        }
+    }
 
-            if (detType.includes('Telemetry')) color = '#a855f7'; // Purple for telemetry
-
-            const circle = L.circle([lat, lng], {
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.35,
-                radius: radius,
-                weight: 2
-            }).addTo(map);
-
-            circle.bindPopup(`
-                <div style="font-family: sans-serif; color: #1e293b; padding: 4px;">
-                    <strong style="color: ${color}; font-size: 1.1em;">⚠️ ${severity.toUpperCase()} HAZARD</strong><br>
-                    <b>Location:</b> ${item.address || 'Bulacan Corridor'}<br>
-                    <b>Pings:</b> ${reports} (${detType})<br>
-                    <small>Status: ${item.status}</small>
-                </div>
-            `);
-
-            cautionCircles.push(circle);
-        });
+    function playHazardAudioAlert(distance, address, severity) {
+        if (!window.speechSynthesis) return;
+        const msg = new SpeechSynthesisUtterance(`Warning. ${severity} Hazard ${Math.round(distance)} meters ahead. Please slow down.`);
+        msg.rate = 1.0;
+        msg.pitch = 1.0;
+        msg.volume = 1.0;
+        window.speechSynthesis.speak(msg);
     }
 
     async function checkProximityAndTelematics() {
-        const response = await LubakBackend.getCases('all');
-        if (!response.success || !response.cases) return;
-
-        const EARLY_WARNING_RADIUS = 400.0;
-        const SLOWDOWN_DETECTION_RADIUS = 50.0;
-
         let closestHazard = null;
         let minDistance = Infinity;
 
-        for (let item of response.cases) {
-            if (item.status === 'Resolved') continue;
-
+        activeRouteHazards.forEach(item => {
+            if (item.status === 'Resolved') return;
             let lat = parseFloat(item.center_latitude);
             let lng = parseFloat(item.center_longitude);
             let dist = LubakBackend.calculateDistance(currentCoords.lat, currentCoords.lng, lat, lng);
@@ -304,7 +279,7 @@ window.DriverApp = (function () {
                 minDistance = dist;
                 closestHazard = item;
             }
-        }
+        });
 
         const hud = document.getElementById('hudWarningBanner');
         const speedText = document.getElementById('speedometerText');
@@ -361,6 +336,11 @@ window.DriverApp = (function () {
     }
 
     function toggleDriveNavigation() {
+        if (routePoints.length === 0) {
+            showToast("Please search for an origin and destination first!", "warning");
+            return;
+        }
+
         const btn = document.getElementById('btnStartNav');
         
         if (!isNavigating) {
@@ -378,8 +358,8 @@ window.DriverApp = (function () {
             navInterval = setInterval(() => {
                 if (currentRouteIndex < routePoints.length) {
                     let pt = routePoints[currentRouteIndex];
-                    currentCoords.lat = pt[0];
-                    currentCoords.lng = pt[1];
+                    currentCoords.lat = pt[1];
+                    currentCoords.lng = pt[0];
 
                     if (driverMarker) driverMarker.setLatLng([currentCoords.lat, currentCoords.lng]);
                     if (map) map.panTo([currentCoords.lat, currentCoords.lng]);
@@ -389,7 +369,7 @@ window.DriverApp = (function () {
                 } else {
                     isNavigating = false;
                     clearInterval(navInterval);
-                    const destName = LOCATIONS[currentDestKey]?.name || 'Destination';
+                    const destName = selectedDestName || 'Destination';
                     if (btn) btn.innerHTML = `<i class="fa-solid fa-flag-checkered"></i> Reached ${destName}!`;
                     showToast(`🏁 Vehicle arrived safely at ${destName}!`, 'success');
                 }
@@ -409,7 +389,7 @@ window.DriverApp = (function () {
             if (btn) btn.innerText = '⚡ Speed: 1.5x (Fast Drive)';
         } else {
             navSpeed = 0.5;
-            if (btn) btn.innerText = '🚗 Speed: 0.5x (Normal)';
+            if (btn) btn.innerText = '⏱️ Speed: 0.5x (Normal)';
         }
     }
 
@@ -426,7 +406,7 @@ window.DriverApp = (function () {
             const data = result.data;
             let msg = data.is_new_case 
                 ? `🚨 New Hazard Reported! Case #${data.case_id} registered.`
-                : `⚡ Hazard Confirmed! Attached to Case #${data.case_id} (${data.total_reports} pings).`;
+                : `✅ Hazard Confirmed! Attached to Case #${data.case_id} (${data.total_reports} pings).`;
 
             if (data.auto_escalated) msg += ` 🚨 CRITICAL SEVERITY ESCALATED (≥50 Pings)!`;
 
@@ -449,7 +429,7 @@ window.DriverApp = (function () {
 
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `<span>${type === 'warning' ? '⚠️' : '✅'}</span> <div>${message}</div>`;
+        toast.innerHTML = `<span>${type === 'warning' ? '⚠️' : '🔔'}</span> <div>${message}</div>`;
         container.appendChild(toast);
 
         setTimeout(() => {
@@ -465,20 +445,90 @@ window.DriverApp = (function () {
             document.getElementById('btnStartNav')?.addEventListener('click', toggleDriveNavigation);
             document.getElementById('btnNavSpeed')?.addEventListener('click', toggleNavSpeed);
 
-            document.getElementById('selectOrigin')?.addEventListener('change', (e) => {
-                currentOriginKey = e.target.value;
-                updateRoutePlan();
+            document.getElementById('btnCurrentLocation')?.addEventListener('click', () => {
+                if (!navigator.geolocation) {
+                    showToast('Geolocation is not supported by your browser.', 'warning');
+                    return;
+                }
+                
+                const btn = document.getElementById('btnCurrentLocation');
+                const origText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Locating...';
+                
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                        const data = await res.json();
+                        
+                        let address = data.display_name;
+                        if (address.length > 40) address = address.substring(0, 40) + '...';
+                        
+                        selectedOriginCoords = [lng, lat];
+                        selectedOriginName = 'Current Location';
+                        document.getElementById('inputOrigin').value = '📍 ' + address;
+                        
+                        currentCoords = { lat: lat, lng: lng };
+                        
+                        if (map) {
+                            map.setView([lat, lng], 14);
+                        }
+                        
+                        if (driverMarker) {
+                            driverMarker.setLatLng([lat, lng]);
+                        }
+                        
+                        updateBadgeUI();
+                        updateRoutePlan();
+                        showToast('Location acquired successfully!', 'success');
+                    } catch (err) {
+                        console.error(err);
+                        showToast('Failed to acquire location address.', 'warning');
+                    } finally {
+                        btn.innerHTML = origText;
+                    }
+                }, (error) => {
+                    console.error(error);
+                    showToast('Failed to get location. Please allow GPS permissions.', 'warning');
+                    btn.innerHTML = origText;
+                }, { enableHighAccuracy: true });
             });
 
-            document.getElementById('selectDestination')?.addEventListener('change', (e) => {
-                currentDestKey = e.target.value;
-                updateRoutePlan();
+            const inputOrig = document.getElementById('inputOrigin');
+            if (inputOrig) {
+                inputOrig.addEventListener('input', (e) => {
+                    clearTimeout(originTimeout);
+                    originTimeout = setTimeout(() => fetchAutocomplete(e.target.value, 'origin'), 400);
+                });
+            }
+
+            const inputDest = document.getElementById('inputDestination');
+            if (inputDest) {
+                inputDest.addEventListener('input', (e) => {
+                    clearTimeout(destTimeout);
+                    destTimeout = setTimeout(() => fetchAutocomplete(e.target.value, 'dest'), 400);
+                });
+            }
+            
+            // Hide suggestions if clicking outside
+            document.addEventListener('click', (e) => {
+                if(e.target && e.target.id !== 'inputOrigin') {
+                    let s = document.getElementById('originSuggestions');
+                    if(s) s.style.display = 'none';
+                }
+                if(e.target && e.target.id !== 'inputDestination') {
+                    let s = document.getElementById('destSuggestions');
+                    if(s) s.style.display = 'none';
+                }
             });
 
             document.getElementById('toggleNlex')?.addEventListener('change', (e) => {
                 useNlexExpressway = e.target.checked;
+                updateBadgeUI();
                 updateRoutePlan();
-                showToast(useNlexExpressway ? '⚡ Routing changed to NLEX Expressway (Orange Line)' : '🛣️ Routing changed to MacArthur Highway (Blue Line)', 'success');
+                showToast(useNlexExpressway ? '✅ Allow Toll Roads (NLEX)' : '✅ Avoid Toll Roads', 'success');
             });
         },
         refresh: refreshCautionZones,
