@@ -1,6 +1,6 @@
 import urllib.request, json
 
-TOKEN = "YOUR_MAPBOX_KEY_HERE" //gawa lang ng api key sa mapbox
+TOKEN = "YOUR_API_KEY_HERE" //Replace with your actual Mapbox API token
 
 def get_mapbox_route(waypoints):
     coords = ";".join([f"{lon},{lat}" for lon, lat in waypoints])

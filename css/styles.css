@@ -202,9 +202,8 @@ body {
 
 .route-planner-row {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 0.6rem;
-    flex-wrap: wrap;
 }
 
 .route-select-group {
@@ -281,6 +280,7 @@ body {
     padding: 0.15rem 0.5rem;
     border-radius: var(--radius-full);
     font-weight: 800;
+    white-space: nowrap;
 }
 
 .route-type-badge.mcarthur {
@@ -593,3 +593,44 @@ body {
 .toast.success { border-left: 4px solid var(--accent-emerald); }
 .toast.warning { border-left: 4px solid var(--severity-critical); }
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.route-input {
+    background: rgba(15, 23, 42, 0.9);
+    color: var(--text-primary);
+    border: 1px solid var(--bg-card-border);
+    padding: 0.4rem 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    font-weight: 600;
+    outline: none;
+    width: 100%;
+}
+
+.autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--bg-card-border);
+    border-radius: var(--radius-sm);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 9999;
+    margin-top: 4px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+.autocomplete-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.autocomplete-item:hover {
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--text-primary);
+}
+
